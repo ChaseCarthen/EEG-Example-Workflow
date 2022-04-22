@@ -1,0 +1,7 @@
+numpy
+antropy
+nolds
+scipy
+pip
+mne
+ssqueezepy
