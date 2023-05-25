@@ -9,7 +9,7 @@ from ssqueezepy.experimental import scale_to_freq,freq_to_scale
 
 os.environ['SSQ_PARALLEL'] = '1'
 
-
+# pairing events together for the starts and ends TODO: pair events together in backend
 def parseEvents(df):
     events = []
     for index,row in df.iterrows():
@@ -29,26 +29,32 @@ def parseEventData(data, event, startOfExperiment, endOfExperiment):
     end = int(endRatio * data.shape[1])
     return data[:,start:end]
 
-def processData(signal,targetData,label=0):
+def processData(signal,targetData,label={'valence':-1,'arousal':-1}):
     for i in [channels.index(channel) for channel in channels]:
         bandData = extractBands(signal[i])
-        if not str(i) + 'deltapower' in data.keys():
+        if not str(i) + 'deltapower' in targetData.keys():
             targetData[str(i) + 'deltapower'] = []
-        if not str(i) + 'thetapower' in data.keys():
+        if not str(i) + 'thetapower' in targetData.keys():
             targetData[str(i) + 'thetapower'] = []
-        if not str(i) + 'gammapower' in data.keys():
+        if not str(i) + 'gammapower' in targetData.keys():
             targetData[str(i) + 'gammapower'] = []
-        if not str(i) + 'alphapower' in data.keys():
+        if not str(i) + 'alphapower' in targetData.keys():
             targetData[str(i) + 'alphapower'] = []
-        if not str(i) + 'betapower' in data.keys():
+        if not str(i) + 'betapower' in targetData.keys():
             targetData[str(i) + 'betapower'] = []
+        if not 'arousal' in targetData.keys():
+            targetData['arousal'] = []
+        if not 'valence' in targetData.keys():
+            targetData['valence'] = []
         targetData[str(i) +'deltapower'].append(bandData['delta']['power'])
         targetData[str(i) +'thetapower'].append(bandData['theta']['power'])
         targetData[str(i) +'gammapower'].append(bandData['gamma']['power'])
         targetData[str(i) +'alphapower'].append(bandData['alpha']['power'])
         targetData[str(i) +'betapower'].append(bandData['beta']['power'])
         #print('test')
-        targetData['labels'] = label
+        #print(label['arousal'],label['valence'])
+    targetData['valence'].append(label['valence'])
+    targetData['arousal'].append(label['arousal'])
     return targetData
 
 def getScaleForFrequency(wavelet=Wavelet('morlet'),fromFreq=1,toFreq=3, fs=128.0, searchScales=100):
@@ -119,9 +125,9 @@ def extractBands(signal, wavelet=Wavelet('morlet'), fs=128.0):
 
 
 # load data
-events = pd.read_csv('./Emotional-ColorsEvents.csv')
+events = pd.read_csv('./test/Emotional-ColorsEvents.csv')
 parsedEvents = parseEvents(events)
-data = pd.read_csv('./Emotional-ColorsEmotivDataStream-EEG.csv')
+data = pd.read_csv('./test/Emotional-ColorsEmotivDataStream-EEG.csv')
 
 
 data.columns = data.columns.str.replace("'",'')
@@ -155,12 +161,43 @@ filteredData[filteredData <= dataRangeMin] = 0
 
 columnNames = [] #['alphapower','deltapower','betapower','gammapower','thetapower']
 data = {}
-
+eyesData = {}
 # run on one channel
+# TODO: put the labels in json or have a tool handle the cleaning part this is a for now.
+labelsMap = {"C1":{"valence": 1,"arousal": 1},
+          "C2":{ "valence" : 1, "arousal" : 0}, 
+          "C3":{ "valence" : 0, "arousal" : 1},
+          "C4":{"valence": 0, "arousal": 0}
+          }
+labelsOfInterest = ["C1","C2","C3","C4"]
+
 for event in parsedEvents:
     print(event['eventname'])
-    eventData = parseEventData(filteredData, event, startOfExperiment, endOfExperiment)
-    data = processData(eventData,data)
+    foundLabel = [label in event['eventname'] for label in labelsOfInterest]
+    found = False
+    for labelitem in foundLabel:
+        found = found or labelitem
+    if found:
+        label = labelsOfInterest[foundLabel.index(True)]
+        eventData = parseEventData(filteredData, event, startOfExperiment, endOfExperiment)
+        data = processData(eventData,data,label=labelsMap[label])
+
+labelsOfInterest = ["Eyes-Open","Eyes-Closed"]
+for event in parsedEvents:
+    print(event['eventname'])
+    foundLabel = [label in event['eventname'] for label in labelsOfInterest]
+    found = False
+    for labelitem in foundLabel:
+        found = found or labelitem
+    if found:
+        #label = labelsOfInterest[foundLabel.index(True)]
+        eventData = parseEventData(filteredData, event, startOfExperiment, endOfExperiment)
+        eyesData = processData(eventData,eyesData)
+
 
 df = pd.DataFrame(data,columns=data.keys())
+df.to_csv('train.csv', index=False)
+
+
+df = pd.DataFrame(eyesData,columns=eyesData.keys())
 df.to_csv('test.csv', index=False)
