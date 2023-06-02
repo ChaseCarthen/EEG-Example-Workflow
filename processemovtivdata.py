@@ -27,11 +27,14 @@ def parseEventData(data, event, startOfExperiment, endOfExperiment):
     endRatio = (event['end']- startOfExperiment)/(endOfExperiment - startOfExperiment)
     start = int(startRatio * data.shape[1])
     end = int(endRatio * data.shape[1])
+
+    print(event['start'],event['end'])
+    print(start,end)
     return data[:,start:end]
 
-def processData(signal,targetData,label={'valence':-1,'arousal':-1}):
+def processData(signal,targetData,label={'valence':-1,'arousal':-1},sfreq=128.0):
     for i in [channels.index(channel) for channel in channels]:
-        bandData = extractBands(signal[i])
+        bandData = extractBands(signal[i],fs=sfreq)
         if not str(i) + 'deltapower' in targetData.keys():
             targetData[str(i) + 'deltapower'] = []
         if not str(i) + 'thetapower' in targetData.keys():
@@ -79,7 +82,8 @@ def extractBands(signal, wavelet=Wavelet('morlet'), fs=128.0):
     betaScales = getScaleForFrequency(fromFreq=13,toFreq=25,wavelet=wavelet,fs=fs)
     gammaScales = getScaleForFrequency(fromFreq=30,toFreq=45,wavelet=wavelet,fs=fs)
 
-    allScales = getScaleForFrequency(fromFreq=1,toFreq=45,searchScales=1000)
+    # adjust search scale to get a finer look into the frequency information
+    allScales = getScaleForFrequency(fromFreq=1,toFreq=45,searchScales=1000,fs=fs)
     wavelet = Wavelet('morlet')
     allFreqs = scale_to_freq(allScales, wavelet, wavelet.N, fs=fs)
     deltaIndexs = np.where(allFreqs <= 3)
@@ -87,7 +91,7 @@ def extractBands(signal, wavelet=Wavelet('morlet'), fs=128.0):
     alphaIndexs = np.where((allFreqs >= 8) & (allFreqs <= 12))
     betaIndexs = np.where((allFreqs >= 13) & (allFreqs <= 25))
     gammaIndexs = np.where((allFreqs >= 30) & (allFreqs <= 45))
-     
+
     # running the wavelet
     coef,scales = cwt(signal,wavelet,allScales,fs=fs)
 
@@ -95,8 +99,8 @@ def extractBands(signal, wavelet=Wavelet('morlet'), fs=128.0):
     alphaSignal = icwt(coef[alphaIndexs], scales=allScales[alphaIndexs])
     deltaSignal = icwt(coef[deltaIndexs], scales=allScales[deltaIndexs])
     betaSignal = icwt(coef[betaIndexs], scales=allScales[betaIndexs])
-    gammaSignal = icwt(coef[gammaIndexs], scales=allScales[gammaIndexs])
     thetaSignal = icwt(coef[thetaIndexs], scales=allScales[thetaIndexs])
+    gammaSignal = icwt(coef[gammaIndexs], scales=allScales[gammaIndexs])
     
     # gets the coefficients 
     deltaWavelets = coef[deltaIndexs]
@@ -125,23 +129,38 @@ def extractBands(signal, wavelet=Wavelet('morlet'), fs=128.0):
 
 
 # load data
-events = pd.read_csv('./test/Emotional-ColorsEvents.csv')
-parsedEvents = parseEvents(events)
-data = pd.read_csv('./test/Emotional-ColorsEmotivDataStream-EEG.csv')
+#events = pd.read_csv('./test/Emotional-ColorsEvents.csv')
+#parsedEvents = parseEvents(events)
+#data = pd.read_csv('./test/Emotional-ColorsEmotivDataStream-EEG.csv')
 
 
-data.columns = data.columns.str.replace("'",'')
+
+def loadData(datafile,eventfile,isOpenBci=False):
+    events = pd.read_csv(datafile)
+    parsedEvents = parseEvents(events)
+    data = pd.read_csv(eventfile)
+    channels = ['AF3', 'F7', 'F3', 'FC5', 'T7', 'P7', 'O1', 'O2', 'P8', 'T8', 'FC6', 'F4', 'F8', 'AF4']
+    data.columns = data.columns.str.replace("'",'') # fixing namings in emotiv data
+
+    if isOpenBci:
+        channels = ['Fp1','Fp2','C3','C4','T5','T6','O1','O2','F7','F8','F3','F4','T3','T4','P3','P4']
+        data[channels] = data[channels] * (4500000)/24/(2**23-1) # scale to uVolts
+
+    return data,parsedEvents,channels
+
+# set isOpenBci to false for emotiv and true for openbci
+data,parsedEvents,channels = loadData('./openbci/Ear Referece/Mash-UpsEvents.csv','./openbci/Ear Referece/Mash-Upsopenbci_eeg.csv',isOpenBci=True) 
 
 startOfExperiment = data['WrittenTimestamp'].min()
 endOfExperiment = data['WrittenTimestamp'].max()
 
 # create the channels in mne -TODO make a function -- difficulty eash
-channels = ['AF3', 'F7', 'F3', 'FC5', 'T7', 'P7', 'O1', 'O2', 'P8', 'T8', 'FC6', 'F4', 'F8', 'AF4']
+#channels = ['AF3', 'F7', 'F3', 'FC5', 'T7', 'P7', 'O1', 'O2', 'P8', 'T8', 'FC6', 'F4', 'F8', 'AF4']
 
-
-
+#sfreq = 128 # emotiv
+sfreq = 125 # openbci cyton+daisy
 # Need to know what is the sampling frequency -- emotiv is 128, openBCI? 
-info = mne.create_info(ch_names=channels,ch_types='eeg',sfreq=128)
+info = mne.create_info(ch_names=channels,ch_types='eeg',sfreq=sfreq)
 
 data = data[channels].transpose()
 data = mne.io.RawArray(data,info)
@@ -172,7 +191,7 @@ labelsMap = {"C1":{"valence": 1,"arousal": 1},
 labelsOfInterest = ["C1","C2","C3","C4"]
 
 for event in parsedEvents:
-    print(event['eventname'])
+    print(event['eventname'],'filtering')
     foundLabel = [label in event['eventname'] for label in labelsOfInterest]
     found = False
     for labelitem in foundLabel:
@@ -180,7 +199,8 @@ for event in parsedEvents:
     if found:
         label = labelsOfInterest[foundLabel.index(True)]
         eventData = parseEventData(filteredData, event, startOfExperiment, endOfExperiment)
-        data = processData(eventData,data,label=labelsMap[label])
+        print(eventData.shape)
+        data = processData(eventData,data,label=labelsMap[label],sfreq=sfreq)
 
 labelsOfInterest = ["Eyes-Open","Eyes-Closed"]
 for event in parsedEvents:
@@ -192,7 +212,7 @@ for event in parsedEvents:
     if found:
         #label = labelsOfInterest[foundLabel.index(True)]
         eventData = parseEventData(filteredData, event, startOfExperiment, endOfExperiment)
-        eyesData = processData(eventData,eyesData)
+        eyesData = processData(eventData,eyesData,sfreq=sfreq)
 
 
 df = pd.DataFrame(data,columns=data.keys())
