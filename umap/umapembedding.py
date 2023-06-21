@@ -15,6 +15,7 @@ def loadData(datafile,isOpenBci=False):
 
     if isOpenBci:
         channels = ['Fp1','Fp2','C3','C4','T5','T6','O1','O2','F7','F8','F3','F4','T3','T4','P3','P4']
+        #channels=['Fp1','Fp2']
         data[channels] = data[channels] * (4500000)/24/(2**23-1) # scale to uVolts
 
     return data,channels
@@ -56,7 +57,7 @@ def makeEEGNetwork(inputDims,n_components=2):
 
     ])
 
-    embedder = ParametricUMAP(encoder=encoder, n_components=2, dims=inputDims, decoder=decoder, parametric_reconstruction= True,parametric_reconstruction_loss_fcn=tf.keras.losses.MeanSquaredError(),autoencoder_loss = True,metric='mahalanobis')
+    embedder = ParametricUMAP(encoder=encoder, n_components=2, dims=inputDims, decoder=decoder, parametric_reconstruction= True,parametric_reconstruction_loss_fcn=tf.keras.losses.MeanSquaredError(),autoencoder_loss = True,metric='correlation')
     return embedder,encoder
 
 
@@ -65,7 +66,7 @@ def makeEEGNetwork(inputDims,n_components=2):
 stft = True
 seconds = 125*5
 #embedder,encoder = makeEEGNetwork((seconds*16 if not stft else 16*20,)) # 16*129
-embedder,encoder = makeEEGNetwork((16*92,))  # 92
+embedder,encoder = makeEEGNetwork((1*92,))  # 92
 #embedder,encoder = makeEEGNetwork((seconds*16,))
 
 
@@ -362,6 +363,8 @@ labelsOfInterest = [
 def makeData(files=[],seconds=125*5,stft=True,isOpenBci=True):
     outData = None
     outClassLabels = None
+    outParticipants = []
+    outChannels = []
     currentClassLabel = 0
     #seconds = 125 * 5 # 5 seconds
 
@@ -397,48 +400,78 @@ def makeData(files=[],seconds=125*5,stft=True,isOpenBci=True):
             print(t)
 
             data = np.abs(data) # turn complex into magnitude
-            data = (data - data.mean()) / data.std()
+           
             data = data[:,61:153,:] 
+            for i in range(92):
+                data[:,i,:] = (data[:,i,:] - data[:,i,:].mean()) / data[:,i,:].std()
             time = t
             print(data.shape)
             #input()
             #input()
             #print(data.shape)
-            data = data.reshape(data.shape[0]*data.shape[1],data.shape[2]).T
+            data = data.transpose(0,2,1)
+            #data = data.reshape(data.shape[0]*data.shape[1],data.shape[2])
+            
+            splitted = np.split(data,16)
+            index = 0
+            #del splitted[12:]
+            for split in splitted:
+                index += 1
+                print(split.shape)
+                splitAppend = split.reshape(split.shape[1],split.shape[2])
+                if outData is not None:
+                    outData = np.append(outData,splitAppend,axis=0)
+                else:
+                    outData = splitAppend
+               #input()
+            print(outData.shape)
+
+            #data = data.reshape(data.shape[0]*data.shape[1],data.shape[2]).T
         
         print(data.shape)
         
         labels = []
         if stft:
-            for i in time:
-                found = False
-                index = 0
-                for eventPairing in eventsOfInterest:
-                    index += 1
-                    start = eventPairing[0]['start'] 
-                    end = eventPairing[0]['end']
-                    if i >= start-startOfExperiment and i < end-startOfExperiment:
-                        #labels.append(eventPairing[1])
-                        #labels.append(index)
-                        #print(eventPairing[1])
+            count = 0
+            for split in splitted:
+                for i in time:
+                    found = False
+                    index = 0
+                    for eventPairing in eventsOfInterest:
+                        index += 1
+                        start = eventPairing[0]['start'] 
+                        end = eventPairing[0]['end']
+                        if i >= start-startOfExperiment and i < end-startOfExperiment:
+                            #labels.append(eventPairing[1])
+                            #labels.append(index)
+                            #print(eventPairing[1])
+                            #labels.append(count % 16)
+                            labels.append(currentClassLabel)
+                            found = True
+                    if not found:
+                        #labels.append(-1)
+                        #labels.append(count % 16)
                         labels.append(currentClassLabel)
-                        found = True
-                if not found:
-                    #labels.append(-1)
-                    labels.append(currentClassLabel)
+                    outChannels.append(count % 16)
+                    outParticipants.append(currentClassLabel)
+                count += 1
             if outClassLabels is not None:
                 outClassLabels = np.append(outClassLabels,labels)
             else:
                 outClassLabels = labels
+                
         else:
             if outClassLabels is not None:
                 outClassLabels = np.append(outClassLabels,[currentClassLabel]*data.shape[0])
             else:
                 outClassLabels = [currentClassLabel]*data.shape[0]
-        if outData is not None:
-            outData = np.append(outData,data,axis=0)
-        else:
-            outData = data
+        #if outData is not None:
+        #    outData = np.append(outData,data,axis=0)
+        #else:
+        #    outData = data
+        print(outData.shape)
+        print(len(outClassLabels))
+        #input()
         currentClassLabel += 1
     #data,channels = loadData('./Mash-Upsopenbci_eeg_head.csv',isOpenBci=True)
     #data2,channels = loadData('./Mash-Upsopenbci_eeg_ear.csv',isOpenBci=True)
@@ -473,15 +506,15 @@ def makeData(files=[],seconds=125*5,stft=True,isOpenBci=True):
     #data = np.append(data,data2,axis=0)
     #data = np.append(data,data3,axis=0)
 
-    return outData,np.array(outClassLabels)
+    return outData,np.array(outClassLabels), outChannels, outParticipants
 
 
-data,train_labels = makeData(stft=stft,seconds=seconds,files=[#'./Mash-Upsopenbci_eeg_head.csv'])#,
-                              './openbci/P24/Emotional-Colorsopenbci_eeg.csv',
+data,train_labels,outChannels,outParticipants = makeData(stft=stft,seconds=seconds,files=['./Mash-Upsopenbci_eeg_head.csv',
+                              #'./openbci/P24/Emotional-Colorsopenbci_eeg.csv',
                               './openbci/P17/Emotional-Colorsopenbci_eeg.csv',
                               './openbci/P18/Emotional-Colorsopenbci_eeg.csv',
                               './openbci/P19/Emotional-Colorsopenbci_eeg.csv',
-                              './openbci/P20/Emotional-Colorsopenbci_eeg.csv',
+                              #'./openbci/P20/Emotional-Colorsopenbci_eeg.csv',
                               './openbci/P21/Emotional-Colorsopenbci_eeg.csv',
                               './openbci/P4/Emotional-Colorsopenbci_eeg.csv',
                               './openbci/P5/Emotional-Colorsopenbci_eeg.csv',
@@ -490,14 +523,14 @@ data,train_labels = makeData(stft=stft,seconds=seconds,files=[#'./Mash-Upsopenbc
                               './openbci/P8/Emotional-Colorsopenbci_eeg.csv',
                               './openbci/P9/Emotional-Colorsopenbci_eeg.csv',
                               './openbci/P10/Emotional-Colorsopenbci_eeg.csv',
-                              './openbci/P11/Emotional-Colorsopenbci_eeg.csv',
+                              #'./openbci/P11/Emotional-Colorsopenbci_eeg.csv',
                               './openbci/P12/Emotional-Colorsopenbci_eeg.csv',
-                              './openbci/P13/Emotional-Colorsopenbci_eeg.csv',
+                              #'./openbci/P13/Emotional-Colorsopenbci_eeg.csv',
                               './openbci/P14/Emotional-Colorsopenbci_eeg.csv',
-                              './openbci/P15/Emotional-Colorsopenbci_eeg.csv',
-                              './openbci/P16/Emotional-Colorsopenbci_eeg.csv'])
-                              #'./Mash-Upsopenbci_eeg_ear.csv'
-                              #])
+                              #'./openbci/P15/Emotional-Colorsopenbci_eeg.csv',
+                              './openbci/P16/Emotional-Colorsopenbci_eeg.csv',
+                              './Mash-Upsopenbci_eeg_ear.csv'
+                              ])
 
 
 embedder.fit_transform(data)
@@ -518,16 +551,19 @@ print(train_labels.max())
 #passindata = data.reshape(data.shape[0],16, 313,1)
 passindata = data
 z = encoder.predict(passindata)
-z = z[indices]
+#z = z[indices]
 
 fig, ax = plt.subplots(ncols=1, figsize=(10, 8))
 colors = ['white', 'red']
-#cmap = ListedColormap(colors)
+colors = ['#FF0000', '#FF8000', '#FFFF00', '#80FF00', '#00FF00', '#00FF80', '#00FFFF', '#0080FF',
+          '#0000FF', '#8000FF', '#FF00FF', '#FF0080', '#FF3333', '#FF9933', '#FFFF66', '#99FF33']
+cmap = ListedColormap(colors)
+
 cmap = 'tab20'
 sc = ax.scatter(
     z[:, 0],
     z[:, 1],
-    c=train_labels[indices],
+    c=outChannels,
     cmap=cmap,
     s=4,
     alpha=0.5,
@@ -535,6 +571,26 @@ sc = ax.scatter(
 )
 colorbar = plt.colorbar(sc)
 ax.set_facecolor('black')
+
+ax.axis('equal')
+ax.set_title("UMAP embeddings channels", fontsize=20)
+
+fig, ax = plt.subplots(ncols=1, figsize=(10, 8))
+
+sc = ax.scatter(
+    z[:, 0],
+    z[:, 1],
+    c=outParticipants,
+    cmap=cmap,
+    s=4,
+    alpha=0.5,
+    rasterized=True
+)
+colorbar = plt.colorbar(sc)
+ax.set_facecolor('black')
+
+ax.axis('equal')
+ax.set_title("UMAP embeddings parts", fontsize=20)
 #legend_handles = []
 #legend_labels = ['Legend Label 1', 'Legend Label 2']
 #for label in legend_labels:
@@ -542,8 +598,7 @@ ax.set_facecolor('black')
 #legend = ax.legend(handles=legend_handles, loc='upper right')
 
 
-ax.axis('equal')
-ax.set_title("UMAP embeddings", fontsize=20)
+
 
 
 plt.show()
