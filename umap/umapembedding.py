@@ -7,6 +7,9 @@ from scipy import signal
 import glob
 import os
 from matplotlib.colors import ListedColormap
+from utils import processSignal
+from readDeapData import loadDeapFile
+import re
 
 # process data as stft, number of seconds to use for the prcoessing
 stft = True
@@ -351,11 +354,6 @@ def makeEEGNetwork(inputDims,n_components=2):
     return embedder,encoder
 
 
-
-
-
-
-
 def parseEventData(data, event, startOfExperiment, endOfExperiment):
     startRatio = (event['start'] - startOfExperiment)/(endOfExperiment - startOfExperiment)
     endRatio = (event['end']- startOfExperiment)/(endOfExperiment - startOfExperiment)
@@ -378,8 +376,6 @@ def parseEvents(df):
     return events
 
 datafile = './openbci/P30/'
-
-
 
 
 def processData(files=[],labelFiles=[],seconds=125*5,stft=True,isOpenBci=True,fmin=13,fmax=30):
@@ -426,47 +422,52 @@ def processData(files=[],labelFiles=[],seconds=125*5,stft=True,isOpenBci=True,fm
             data = np.array(np.split(data[:int(data.shape[0]/seconds)*seconds,:],int(data.shape[0]/seconds),axis=0))
             data = data.reshape(data.shape[0],data.shape[1]*data.shape[2])
         else: 
-            f,t,data = signal.stft(data.T, 125,nperseg=125*5,noverlap=0)
-            print(f)
-            print(t)
-            minf = 1000000
-            maxf = -100000
-            fminindex = 100000
-            fmaxindex = -1
-            for i in f:
-                if i >= fmin:
-                    minf = min(i,minf)
-                    fminindex = min(fminindex,np.where(f == i)[0][0])
-                if i <= fmax:
-                    maxf = max(i,maxf)
-                    fmaxindex = max(np.where(f == i)[0][0],fmaxindex)
+            outputData,time,fmaxindex,fminindex = processSignal(data)
+            if outData != None:
+                outData = np.append(outData,outputData,axis=0)
+            else:
+                outData = outputData
+        #     f,t,data = signal.stft(data.T, 125,nperseg=125*5,noverlap=0)
+        #     print(f)
+        #     print(t)
+        #     minf = 1000000
+        #     maxf = -100000
+        #     fminindex = 100000
+        #     fmaxindex = -1
+        #     for i in f:
+        #         if i >= fmin:
+        #             minf = min(i,minf)
+        #             fminindex = min(fminindex,np.where(f == i)[0][0])
+        #         if i <= fmax:
+        #             maxf = max(i,maxf)
+        #             fmaxindex = max(np.where(f == i)[0][0],fmaxindex)
             
-            print(fminindex,fmaxindex)
-            data = np.abs(data) # turn complex into magnitude
+        #     print(fminindex,fmaxindex)
+        #     data = np.abs(data) # turn complex into magnitude
            
-            data = data[:,fminindex:fmaxindex+1,:] 
-            for i in range(fmaxindex-fminindex+1):
-                data[:,i,:] = (data[:,i,:] - data[:,i,:].mean()) / data[:,i,:].std()
-            time = t
-            print(data.shape)
-            data = data.transpose(0,2,1)
-            splitted = np.split(data,16)
-            index = 0
-            for split in splitted:
-                index += 1
-                print(split.shape)
-                splitAppend = split.reshape(split.shape[1],split.shape[2])
-                if outData is not None:
-                    outData = np.append(outData,splitAppend,axis=0)
-                else:
-                    outData = splitAppend
-            print(outData.shape)
-        print(data.shape)
+        #     data = data[:,fminindex:fmaxindex+1,:] 
+        #     for i in range(fmaxindex-fminindex+1):
+        #         data[:,i,:] = (data[:,i,:] - data[:,i,:].mean()) / data[:,i,:].std()
+        #     time = t
+        #     print(data.shape)
+        #     data = data.transpose(0,2,1)
+        #     splitted = np.split(data,16)
+        #     index = 0
+        #     for split in splitted:
+        #         index += 1
+        #         print(split.shape)
+        #         splitAppend = split.reshape(split.shape[1],split.shape[2])
+        #         if outData is not None:
+        #             outData = np.append(outData,splitAppend,axis=0)
+        #         else:
+        #             outData = splitAppend
+        #     print(outData.shape)
+        # print(data.shape)
         
         labels = []
         if stft:
             count = 0
-            for split in splitted:
+            for split in range(16):
                 for i in time:
                     found = False
                     index = 0
@@ -490,11 +491,9 @@ def processData(files=[],labelFiles=[],seconds=125*5,stft=True,isOpenBci=True,fm
                 
         else:
             if outClassLabels is not None:
-                outClassLabels = np.append(outClassLabels,[currentClassLabel]*data.shape[0])
+                outClassLabels = np.append(outClassLabels,[currentClassLabel] * data.shape[0])
             else:
                 outClassLabels = [currentClassLabel]*data.shape[0]
-        print(outData.shape)
-        print(len(outClassLabels))
         currentClassLabel += 1
     return outData,np.array(outClassLabels), outChannels, outParticipants,fmaxindex-fminindex+1
 
@@ -597,6 +596,30 @@ labelFiles = glob.glob('./openbci/P*/Emotional-ColorsEvents.csv')
 files = glob.glob('./openbci/P*/Emotional-Colorsopenbci_eeg.csv')
 partcipants = glob.glob('./openbci/P*')
 
+
+files = glob.glob('/mnt/data3/schooldata/bsonfiles/*.bson')
+
+for file in files:
+    base = os.path.basename(file)
+    participant = int(re.findall('[0-9]+',base)[0])
+    #print(os.path.basename(file))
+    outData,outParticipants,outChannel,outLabel = loadDeapFile(file,partcipantNumber=participant)
+    print(outData.shape)
+    #input()
+    dimension = outData.shape[1]
+    embedder,encoder = makeEEGNetwork((dimension,))  # 92
+    embedder.fit_transform(outData)
+    z = encoder.predict(outData)
+    plotData('UMAP embeddings participants',z,outParticipants,save=True,saveName='deeppartcipants' + str(participant) + '.png',cmap=cmap)
+    plotData('UMAP embeddings channels',z,outChannel,save=True,saveName='deepchannel' + str(participant) + '.png',cmap=cmap)
+    plotData('UMAP embeddings labels',z,outLabel,showLabelText=True,save=True,saveName='deeplabel'+ str(participant) + '.png',cmap=cmap)
+    print(outData.shape)
+    z2 = np.append(z,np.array(outLabel).reshape((len(outLabel),1)),axis=1)
+    pd.DataFrame(z2).to_csv('test2.csv',index=False)
+    print(z2)
+    input()
+    
+input()
 for i in range(len(partcipants)):
     partcipant = partcipants[i]
     file = [partcipants[i]+'/Emotional-Colorsopenbci_eeg.csv']
