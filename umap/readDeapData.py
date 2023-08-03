@@ -4,7 +4,7 @@ import numpy as np
 from utils import processSignal
 
 
-def loadDeapFile(filename,partcipantNumber=0,allChannel=False):
+def loadDeapFile(filename,partcipantNumber=0,allChannel=False,fmin=13,fmax=30,samplerate=128):
     data = open(filename,'rb').read()
     data = bson.loads(data)
     outData = None
@@ -14,6 +14,7 @@ def loadDeapFile(filename,partcipantNumber=0,allChannel=False):
     outValence = []
     outDominance = []
     outTrial = []
+    outTime = []
     #print(len(data['channel']))
     # iterate across 40 trials
     for trial in range(40):
@@ -23,7 +24,7 @@ def loadDeapFile(filename,partcipantNumber=0,allChannel=False):
             
             # create stfts and labels
             signalData = np.array(data['trial'][str(trial)]['channels'][channel]['data'])[:128*60]
-            processedData,time,fmaxindex,fminindex = processSignal(signalData,numChannels=1,seconds=128*5,samplerate=128)
+            processedData,time,fmaxindex,fminindex = processSignal(signalData,numChannels=1,seconds=128*5,samplerate=128,fmin=fmin,fmax=fmax)
             if channelData is None:
                 channelData = processedData
             else:
@@ -36,6 +37,7 @@ def loadDeapFile(filename,partcipantNumber=0,allChannel=False):
                     outArousal.append(data['trial'][str(trial)]['channels'][0]['arousal_label'])
                     outValence.append(data['trial'][str(trial)]['channels'][0]['valence_label'])
                     outDominance.append(data['trial'][str(trial)]['channels'][0]['dominance_label'])
+                    outTime.append(t)
         if allChannel:
             for t in time:
                 outParticipants.append(partcipantNumber)
@@ -44,6 +46,7 @@ def loadDeapFile(filename,partcipantNumber=0,allChannel=False):
                 outArousal.append(data['trial'][str(trial)]['channels'][0]['arousal_label'])
                 outValence.append(data['trial'][str(trial)]['channels'][0]['valence_label'])
                 outDominance.append(data['trial'][str(trial)]['channels'][0]['dominance_label'])
+                outTime.append(t)
 
         #print(channelData)
         #print(channelData.shape)
@@ -54,7 +57,7 @@ def loadDeapFile(filename,partcipantNumber=0,allChannel=False):
             outData = np.append(outData,channelData,axis=0)
         #input()
     
-    return np.array(outData),np.array(outParticipants),np.array(outChannel),np.array(outArousal),np.array(outValence),np.array(outDominance),np.array(outTrial)
+    return np.array(outData),np.array(outParticipants),np.array(outChannel),np.array(outArousal),np.array(outValence),np.array(outDominance),np.array(outTrial),np.array(outTime)
 
 
 
