@@ -24,6 +24,8 @@ def processSignal(data, seconds=125*5,fmin=13,fmax=30,samplerate=125,numChannels
     data = data[:,fminindex:fmaxindex+1,:] 
     for i in range(fmaxindex-fminindex+1):
         data[:,i,:] = (data[:,i,:] - data[:,i,:].mean()) / data[:,i,:].std()
+    #for i in range(0,data.shape[2]):
+    #    data[:,:,i] = (data[:,:,i] - data[:,:,i].mean()) / data[:,:,i].std()
     data = data.transpose(0,2,1)
     splitted = np.split(data,numChannels)
     index = 0

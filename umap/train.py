@@ -19,6 +19,7 @@ from lineartree import LinearForestClassifier
 from lineartree import LinearBoostClassifier
 from sklearn.multiclass import OneVsRestClassifier
 
+import lightgbm as lgb
 
 #files = glob.glob('tryallchannelonepart/*.csv')
 #files = glob.glob('testonechannelonepart/*.csv')
@@ -236,6 +237,7 @@ mapping = {
 
 
 for file in files:
+    #print(file)
     #cls = ensemble.RandomForestClassifier(random_state=42)
     #cls = tree.ExtraTreeClassifier(random_state=42,criterion='entropy',min_samples_split=2,min_samples_leaf=1)
     #cls = svm.LinearSVC(random_state=42)
@@ -244,7 +246,10 @@ for file in files:
     #cls = ensemble.GradientBoostingClassifier(random_state=42)
     #cls = M5Prime(random_state=42)
     #cls = OneVsRestClassifier(LinearForestClassifier(base_estimator=LinearRegression(),max_features='sqrt',random_state=42))
-    cls = LinearTreeClassifier(base_estimator=linear_model.LogisticRegression(random_state=42),max_depth=5)
+    #cls = LinearTreeClassifier(base_estimator=linear_model.LogisticRegression(random_state=42),max_depth=20)
+    #cls = lgb.LGBMClassifier(random_state=42,verbose=-1,tree_learner='serial',linear_tree=True,n_jobs=16)
+    cls = ensemble.RandomForestClassifier(random_state=42)
+    #cls = ModelTreeClassifier()
     #cls = Orange.classification.TreeLearner()
     data = pd.read_csv(file)
     #data = data.drop(index=np.where(data['participant']==23.0)[0])
@@ -258,7 +263,7 @@ for file in files:
     #valence_labels = np.array([ mapping[int(i)+1]['AVG_Valence'] for i in data['trial']]) > 5
     #arousal_labels = np.array([ mapping[int(i)+1]['AVG_Arousal'] for i in data['trial']]) > 5
     #dominance_labels = np.array([ mapping[int(i)+1]['AVG_Dominance'] for i in data['trial']]) > 5
-    #data['arousal'] = data['arousal'] > 5.0
+    data['arousal'] = data['arousal'] > 5.0
     #data['valence'] = data['valence'] > 5.0
     #data['dominance'] = data['dominance'] > 5.0
 
@@ -304,19 +309,19 @@ for file in files:
     #data['data_1x2'] = (data['data_1x2'] - data['data_1x2'].mean()) / data['data_1x2'].std()
     #features = ['angle','magnitude', 'dist_center_1', 'dist_center_2','time_x','time_y', 'time']
     #features = ['angle','magnitude', 'dist_center_1', 'dist_center_2']
-    features = ['data_1','data_2','time','participant']
+    features = ['data_1','data_2']
     data['trial']=data['trial'].apply(lambda x: int(x))
-    data['time']=data['time'].apply(lambda x: int(x))
-    data['participant']=data['participant'].apply(lambda x: int(x))
+    data['time']=data['time'].apply(lambda x: str(x))
+    data['participant']=data['participant'].apply(lambda x: str(x))
     #print(cls.predict(data[features])[0])
     #cross_val_score(cls,data[features], data['trial'], cv=4)
-    scores = cross_validate(cls, data[features], data['trial'], cv=4, scoring='accuracy', return_train_score=False, return_estimator=False,verbose=True)
+    scores = cross_validate(cls, data[features], data['arousal'], cv=4, scoring='accuracy', return_train_score=False, return_estimator=False,verbose=10)
     print(file,scores['test_score'].mean())
     #print(np.where(scores['test_score'] == scores['test_score'].max()))
     #cls = scores['estimator'][np.where(scores['test_score'] == scores['test_score'].max())[0][0]]
     #data['trial'] = cls.predict(data[features])
     #data['trial'].apply(lambda x: int(x))
-    #cls = ensemble.RandomForestClassifier(random_state=42)
+    #
     #print(cross_val_score(cls,data[features], data['arousal']).mean())
     #features.append('trial')
     #print(cross_val_score(cls,data[features], data['arousal']).mean())
