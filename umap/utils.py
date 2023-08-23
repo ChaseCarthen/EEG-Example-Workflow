@@ -7,8 +7,10 @@ def processSignal(data, seconds=125*5,fmin=13,fmax=30,samplerate=125,numChannels
     '''
     if len(data.shape) == 1:
         data = data.reshape(data.shape[0],1)
+
     outData = None
     f,time,data = signal.stft(data.T, samplerate,nperseg=seconds,noverlap=0)
+    
     minf = 1000000
     maxf = -100000
     fminindex = 100000

@@ -609,7 +609,7 @@ for file in files:
     dimension = outData.shape[1]
     embedder,encoder = makeEEGNetwork((dimension,))  # 92
     embedder.fit_transform(outData)
-    z = encoder.predict(outData)
+    z = embedder.predict(outData)
     plotData('UMAP embeddings participants',z,outParticipants,save=True,saveName='deeppartcipants' + str(participant) + '.png',cmap=cmap)
     plotData('UMAP embeddings channels',z,outChannel,save=True,saveName='deepchannel' + str(participant) + '.png',cmap=cmap)
     plotData('UMAP embeddings labels',z,outLabel,showLabelText=True,save=True,saveName='deeplabel'+ str(participant) + '.png',cmap=cmap)
