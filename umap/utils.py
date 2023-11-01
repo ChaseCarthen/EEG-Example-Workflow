@@ -103,3 +103,56 @@ def plotData(title, data, labels=[], cmap='tab20', showLabelText=False, save=Fal
         fig.savefig(saveName)
     if showPlot:
         plt.show()
+
+def plot_signal(signal, x_axis=None, title="Signal Plot", xlabel="Time", ylabel="Amplitude"):
+    """
+    Plots a given signal.
+
+    Parameters:
+    - signal: List or array of signal values.
+    - x_axis: Optional list or array for the x-axis (e.g., time values).
+    - title: Title for the plot.
+    - xlabel: Label for the x-axis.
+    - ylabel: Label for the y-axis.
+    """
+
+    plt.figure(figsize=(10, 5))
+    if x_axis:
+        plt.plot(x_axis, signal)
+    else:
+        plt.plot(signal)
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.grid(True)
+    plt.show()
+
+def plot_multichannel(signals, channel_names=None, title="Multichannel Signal Plot", xlabel="Time", ylabel="Amplitude"):
+    """
+    Plots signals from multiple channels.
+
+    Parameters:
+    - signals: 2D list or array where each row is a channel.
+    - channel_names: Optional list of channel names.
+    - title, xlabel, ylabel: Plot labels.
+    """
+
+    n_channels = len(signals)
+    if channel_names == None:
+        channel_names = [str(i) for i in range(n_channels)] 
+    if channel_names and len(channel_names) != n_channels:
+        raise ValueError("Mismatch between number of signals and channel names.")
+
+    plt.figure(figsize=(10, 5 * n_channels))
+    for idx, channel in enumerate(signals):
+        plt.subplot(n_channels, 1, idx + 1)
+        plt.plot(channel)
+        if channel_names:
+            plt.title(channel_names[idx])
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.grid(True)
+
+    plt.suptitle(title)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.show()
