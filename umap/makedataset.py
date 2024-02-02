@@ -36,7 +36,7 @@ def makeEEGNetwork(inputDims,n_components=2,og=True):
     
     return embedder,encoder
 
-files = glob.glob('/mnt/h/school/affectivecomputing/data/*.bson')
+files = glob.glob('./dataparticipantsdeap/data/*.bson')
 #files = ['/mnt/data3/schooldata/data/s04.bson','/mnt/data3/schooldata/data/s11.bson','/mnt/data3/schooldata/data/s23.bson']
 
 allOutData=None
@@ -57,7 +57,7 @@ for file in files:
     base = os.path.basename(file)
     participant = int(re.findall('[0-9]+',base)[0])
     #print(os.path.basename(file))
-    outData,outParticipants,outChannel,outArousal,outValence,outDominance,outTrial,outTime = loadDeapFile(file,partcipantNumber=participant,allChannel=allChannel,fmin=30,fmax=100)
+    outData,outParticipants,outChannel,outArousal,outValence,outDominance,outTrial,outTime = loadDeapFile(file,partcipantNumber=participant,allChannel=allChannel,fmin=0,fmax=100,useGroupsRating=True)
 
     if allOutData is not None:
         allOutData = np.append(allOutData,outData,axis=0)
@@ -99,7 +99,7 @@ for file in files:
         z2 = np.append(z2,np.array(allOutChannel).reshape((len(allOutChannel),1)),axis=1)
         z2 = np.append(z2,np.array(allOutTime).reshape((len(allOutTime),1)),axis=1)
         print(z2)
-        pd.DataFrame(z2).to_csv('./' + ('gammadata' if not allChannel else 'tryallchannelonepart') + '/'+ base + '.csv',index=False,header=['data_1','data_2','arousal','valence','dominance','trial','participant','channel','time'])
+        pd.DataFrame(z2).to_csv('./' + ('alldata' if not allChannel else 'tryallchannelonepart') + '/'+ base + '.csv',index=False,header=['data_1','data_2','arousal','valence','dominance','trial','participant','channel','time'])
 
         allOutData=None
         allOutParticipants=None 

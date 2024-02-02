@@ -4,7 +4,7 @@ import numpy as np
 from utils import processSignal
 
 
-def loadDeapFile(filename,partcipantNumber=0,allChannel=False,fmin=13,fmax=30,samplerate=128):
+def loadDeapFile(filename,partcipantNumber=0,allChannel=False,fmin=13,fmax=30,samplerate=128,useGroupsRating=False):
     data = open(filename,'rb').read()
     data = bson.loads(data)
     outData = None
@@ -34,8 +34,12 @@ def loadDeapFile(filename,partcipantNumber=0,allChannel=False,fmin=13,fmax=30,sa
                     outParticipants.append(partcipantNumber)
                     outChannel.append(channel)
                     outTrial.append(trial)
-                    outArousal.append(data['trial'][str(trial)]['channels'][0]['arousal_label'])
-                    outValence.append(data['trial'][str(trial)]['channels'][0]['valence_label'])
+                    if not useGroupsRating:
+                        outArousal.append(data['trial'][str(trial)]['channels'][0]['arousal_label'])
+                        outValence.append(data['trial'][str(trial)]['channels'][0]['valence_label'])
+                    else:
+                        outArousal.append(data['trial'][str(trial)]['channels'][0]['group_arousal_label'])
+                        outValence.append(data['trial'][str(trial)]['channels'][0]['group_valence_label'])
                     outDominance.append(data['trial'][str(trial)]['channels'][0]['dominance_label'])
                     outTime.append(t)
         if allChannel:
