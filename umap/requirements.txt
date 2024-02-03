@@ -1,2 +1,6 @@
 umap-learn
 tensorflow
+numpy
+bson
+javabridge
+python-weka-wrapper3
