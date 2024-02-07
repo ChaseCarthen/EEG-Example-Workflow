@@ -57,7 +57,7 @@ for file in files:
     base = os.path.basename(file)
     participant = int(re.findall('[0-9]+',base)[0])
     #print(os.path.basename(file))
-    outData,outParticipants,outChannel,outArousal,outValence,outDominance,outTrial,outTime = loadDeapFile(file,partcipantNumber=participant,allChannel=allChannel,fmin=0,fmax=100,useGroupsRating=True)
+    outData,outParticipants,outChannel,outArousal,outValence,outDominance,outTrial,outTime = loadDeapFile(file,partcipantNumber=participant,allChannel=allChannel,fmin=0,fmax=100,useGroupsRating=False)
 
     if allOutData is not None:
         allOutData = np.append(allOutData,outData,axis=0)

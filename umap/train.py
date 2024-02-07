@@ -114,9 +114,9 @@ def processData(files,cls,features=['data_1','data_2','time'],output='results.cs
         cls = ensemble.RandomForestClassifier(random_state=42)
         data = pd.read_csv(file)
 
-        #data['arousal'] = data['arousal'] > 5.0
-        #data['valence'] = data['valence'] > 5.0
-        #data['dominance'] = data['dominance'] > 5.0
+        data['arousal'] = data['arousal'] > 5.0
+        data['valence'] = data['valence'] > 5.0
+        data['dominance'] = data['dominance'] > 5.0
         data['data_1x2'] = data['data_1'] * data['data_2']
         data['dist_center_1'] = (data['data_1'] - data['data_1'].mean()) / data['data_1'].std()
         data['dist_center_2'] = (data['data_2'] - data['data_2'].mean()) / data['data_1'].std()
@@ -140,8 +140,14 @@ def processData(files,cls,features=['data_1','data_2','time'],output='results.cs
         newfilename = basename + 'processed' + '.csv'
         data.to_csv(newfilename,index=False)
         valence_correct,valence_matrix,arousal_correct,arousal_matrix = trainWeka(newfilename)
-        data['valence_correct_weka'] = valence_correct
-        data['arousal_correct_weka'] = arousal_correct
+        df = pd.DataFrame(columns=['valence_correct_weka','arousal_correct_weka'])
+        df['valence_correct_weka'] = [valence_correct]
+        df['arousal_correct_weka'] = [arousal_correct]
+        print(df)
+        newfilename = basename + 'processed' + '.csv'
+        data.to_csv(newfilename,index=False)
+        df.to_csv(basename+'results.csv', index=False)
+        print('saved' + newfilename)
         if classify:
             scores = cross_validate(cls, data[features], data['trial'], cv=4, scoring='accuracy', return_train_score=False, return_estimator=False)
             trialscore = scores['test_score'].mean()
