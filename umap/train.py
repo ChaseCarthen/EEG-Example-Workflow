@@ -44,6 +44,7 @@ jvm.start(system_cp=True, packages=True)
 
 # use python 3 with this
 def trainWeka(filename):
+    print(filename)
     # Start the JVM
     
     
@@ -82,13 +83,13 @@ def trainWeka(filename):
     #print(len(filtered.attribute_names()))
     #print(data.class_index)
     #print(filtered.class_index)
-    classifier = Classifier(classname="weka.classifiers.trees.RandomForest")
+    classifier = Classifier(classname="weka.classifiers.trees.REPTree")
     evl = Evaluation(arousal_filtered)
     evl.crossvalidate_model(classifier, arousal_filtered, 10, Random(1))
     arousal_correct = evl.percent_correct
     arousal_matrix = evl.confusion_matrix
 
-    classifier = Classifier(classname="weka.classifiers.trees.RandomForest")
+    classifier = Classifier(classname="weka.classifiers.trees.REPTree")
     evl = Evaluation(valence_filtered)
     evl.crossvalidate_model(classifier, valence_filtered, 10, Random(1))
     valence_correct = evl.percent_correct

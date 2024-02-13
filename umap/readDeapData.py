@@ -4,7 +4,7 @@ import numpy as np
 from utils import processSignal
 
 
-def loadDeapFile(filename,partcipantNumber=0,allChannel=False,fmin=13,fmax=30,samplerate=128,useGroupsRating=False):
+def loadDeapFile(filename,partcipantNumber=0,allChannel=False,fmin=13,fmax=30,samplerate=128,seconds=5,useGroupsRating=False):
     data = open(filename,'rb').read()
     data = bson.loads(data)
     outData = None
@@ -24,7 +24,7 @@ def loadDeapFile(filename,partcipantNumber=0,allChannel=False,fmin=13,fmax=30,sa
             
             # create stfts and labels
             signalData = np.array(data['trial'][str(trial)]['channels'][channel]['data'])[:128*60]
-            processedData,time,fmaxindex,fminindex = processSignal(signalData,numChannels=1,seconds=128*5,samplerate=128,fmin=fmin,fmax=fmax)
+            processedData,time,fmaxindex,fminindex = processSignal(signalData,numChannels=1,seconds=128*seconds,samplerate=128,fmin=fmin,fmax=fmax)
             if channelData is None:
                 channelData = processedData
             else:
