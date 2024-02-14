@@ -38,6 +38,7 @@ def parseEventData(data, event, startOfExperiment, endOfExperiment):
     return data[:,start:end]
 
 
+
 def processData(files=[],labelFiles=[],participants=[],sampleRate = 125,seconds=5,numChannels=16,stft=True,isOpenBci=True,fmin=13,fmax=30,labelsMap={'C1':1}):
     """
     function: processData
@@ -68,10 +69,14 @@ def processData(files=[],labelFiles=[],participants=[],sampleRate = 125,seconds=
     seconds = sampleRate * seconds
     outData = None
     outClassLabels = None
+    outArousal = []
+    outValence = []
+    outDominance = []
     outParticipants = []
     outChannels = []
     outDimension = 0
-    currentClassLabel = 0
+    outEventName = []
+    outTime = []
     participant = 0
     #seconds = 125 * 5 # 5 seconds
 
@@ -105,6 +110,10 @@ def processData(files=[],labelFiles=[],participants=[],sampleRate = 125,seconds=
         time = 0
         if not stft:
             data = data.T
+            timeSum = 0
+            for i in range(0,data.shape[0]):
+                outTime.append(timeSum)
+                timeSum += 1/sampleRate
             print(data.shape)
             if not outData is None:
                 outData = np.append(outData,data,axis=1)
@@ -124,6 +133,7 @@ def processData(files=[],labelFiles=[],participants=[],sampleRate = 125,seconds=
             count = 0
             for split in range(numChannels):
                 for i in time:
+                    outTime.append(i)
                     found = False
                     index = 0
                     for eventPairing in eventsOfInterest:
@@ -131,11 +141,19 @@ def processData(files=[],labelFiles=[],participants=[],sampleRate = 125,seconds=
                         start = eventPairing[0]['start'] 
                         end = eventPairing[0]['end']
                         if i >= start-startOfExperiment and i < end-startOfExperiment:
-                            labels.append(eventPairing[1])
+                            labels.append(eventPairing[1]['arousal'])
+                            outArousal.append(eventPairing[1]['arousal'])
+                            outValence.append(eventPairing[1]['valence'])
+                            outDominance.append(eventPairing[1]['dominance'])
+                            outEventName.append(eventPairing[0]['eventname'].lower())
                             found = True
                             break
                     if not found:
                         labels.append(-1)
+                        outArousal.append(-1)
+                        outValence.append(-1)
+                        outDominance.append(-1)
+                        outEventName.append('none')
                     outChannels.append(count % 16)
                     outParticipants.append(participant)
                 count += 1
@@ -146,15 +164,20 @@ def processData(files=[],labelFiles=[],participants=[],sampleRate = 125,seconds=
             outDimension= fmaxindex-fminindex+1
         else:
             labels = np.array([-1] * data.shape[1])
-
+            outArousal = np.array([-1] * data.shape[1])
+            outValence = np.array([-1] * data.shape[1])
+            outDominance = np.array([-1] * data.shape[1])
+            outEventName = np.array(['none'] * data.shape[1])
             for eventPairing in eventsOfInterest:
                 start = eventPairing[0]['start'] -startOfExperiment
                 end = eventPairing[0]['end'] - startOfExperiment
                 start = int(start*125)
                 end = int(end *125)
-                labels[start:end] = eventPairing[1]
-            #print(labels,data.shape,eventsOfInterest)
-            #input()
+                labels[start:end] = eventPairing[1]['arousal']
+                outArousal[start:end] = eventPairing[1]['arousal']
+                outValence[start:end] = eventPairing[1]['valence']
+                outDominance[start:end] = eventPairing[1]['dominance']
+                outEventName[start:end] = eventPairing[0]['eventname'].lower()
             for split in range(16):
                 outChannels = np.append(outChannels,[split]*data.shape[1])
                 outParticipants = np.append(outParticipants,[participant]*data.shape[1])
@@ -162,5 +185,9 @@ def processData(files=[],labelFiles=[],participants=[],sampleRate = 125,seconds=
                     outClassLabels = np.append(outClassLabels,labels)
                 else:
                     outClassLabels = labels
-        currentClassLabel += 1
-    return outData,np.array(outClassLabels), outChannels, outParticipants,outDimension
+            outArousal = np.array(outArousal*16)
+            outValence = np.array(outValence*16)
+            outDominance = np.array(outDominance*16)
+            outEventName = np.array(outEventName*16)
+            outTime = np.array(outTime*16)
+    return outData,np.array(outClassLabels),np.array(outArousal),np.array(outValence),np.array(outDominance), np.array(outEventName), outTime, outChannels, outParticipants,outDimension
